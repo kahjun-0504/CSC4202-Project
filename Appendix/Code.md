@@ -1,0 +1,111 @@
+```
+ import java.util.*;
+import java.io.*;
+
+public class V4 {
+    static class Shipment {
+        int id;
+        double revenue;
+        double timeRemaining;
+        int serviceLevel;
+        int weight;
+        double priorityScore;
+
+        Shipment(int id, double revenue, double timeRemaining, int serviceLevel, int weight) {
+            this.id = id;
+            this.revenue = revenue;
+            this.timeRemaining = timeRemaining;
+            this.serviceLevel = serviceLevel;
+            this.weight = weight;
+            this.priorityScore = Math.round(0.5 * revenue + 0.3 * (1.0 / timeRemaining) + 0.7 * serviceLevel);
+        }
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter path to shipment CSV file: ");
+        String filePath = scanner.nextLine();
+
+        List<Shipment> shipmentList = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.trim().isEmpty()) continue; // skip empty lines
+                String[] parts = line.split(",");
+
+                int id = Integer.parseInt(parts[0]); // First column is ID
+                double revenue = Double.parseDouble(parts[1]);
+                double timeRemaining = Double.parseDouble(parts[2]);
+                int serviceLevel = Integer.parseInt(parts[3]);
+                int weight = Integer.parseInt(parts[4]);
+
+                shipmentList.add(new Shipment(id, revenue, timeRemaining, serviceLevel, weight));
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+            return;
+        }
+
+        int n = shipmentList.size();
+        int W = 500;
+        Shipment[] shipments = shipmentList.toArray(new Shipment[0]);
+
+        double[][] dp = new double[n + 1][W + 1];
+        boolean[][] keep = new boolean[n + 1][W + 1];
+
+        // Fill DP table
+        for (int i = 1; i <= n; i++) {
+            for (int w = 0; w <= W; w++) {
+                if (shipments[i - 1].weight <= w) {
+                    double include = shipments[i - 1].priorityScore + dp[i - 1][w - shipments[i - 1].weight];
+                    double exclude = dp[i - 1][w];
+                    if (include > exclude) {
+                        dp[i][w] = include;
+                        keep[i][w] = true;
+                    } else {
+                        dp[i][w] = exclude;
+                    }
+                } else {
+                    dp[i][w] = dp[i - 1][w];
+                }
+            }
+        }
+
+        // Backtrack to find selected shipments
+        int w = W;
+        List<Integer> selectedShipments = new ArrayList<>();
+        int totalWeight = 0;
+        for (int i = n; i > 0; i--) {
+            if (keep[i][w]) {
+                selectedShipments.add(shipments[i - 1].id);
+                totalWeight += shipments[i - 1].weight;
+                w -= shipments[i - 1].weight;
+            }
+        }
+
+        // Output results
+        Collections.reverse(selectedShipments);
+
+        System.out.println("\nFinal Shipment Selection Based on Optimization:");
+        System.out.printf("%-12s %-12s %-15s%n", "ShipmentID", "Weight (kg)", "Priority Score");
+        double totalScore = 0.0;
+
+        for (int id : selectedShipments) {
+            Shipment s = Arrays.stream(shipments).filter(sh -> sh.id == id).findFirst().get();
+            System.out.printf("%03d          %-12d %-15d%n", s.id, s.weight, (int) s.priorityScore);
+            totalScore += s.priorityScore;
+        }
+
+        System.out.println("------------------------------------------------");
+        System.out.printf("%-12s %-12d %-15.0f%n", "Total", totalWeight, totalScore);
+
+        // Optional: Show each shipment's score
+        System.out.println("\n--- All Shipment Priority Scores ---");
+        System.out.printf("%-12s %-15s%n", "ShipmentID", "Priority Score");
+        for (Shipment s : shipments) {
+            System.out.printf("%03d           %-15d%n", s.id, (int) s.priorityScore);
+        }
+    }
+}
+```
